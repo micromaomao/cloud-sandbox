@@ -1,0 +1,21 @@
+{
+  "name": "web",
+  "private": "true",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "parcel --public-url . build index.html",
+    "serve": "parcel --public-url . serve index.html"
+  },
+  "author": "maowtm <m@maowtm.org>",
+  "license": "MIT",
+  "devDependencies": {
+    "parcel": "^1.12.4",
+    "sass": "^1.32.2",
+    "typescript": "^4.1.3",
+    "xterm": "^4.9.0",
+    "xterm-addon-fit": "^0.4.0"
+  }
+}

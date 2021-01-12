@@ -15,7 +15,7 @@ mod sandbox;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-  let listener = TcpListener::bind("127.0.0.1:5000").await?;
+  let listener = TcpListener::bind("0.0.0.0:5000").await?;
   loop {
     let (stream, src) = listener.accept().await?;
     tokio::spawn(async move {
@@ -35,7 +35,7 @@ async fn handle_ws_connection<S: AsyncRead + AsyncWrite + Unpin>(stream: S, src:
   ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut ws = accept_async(stream).await?;
     ws.feed(Message::Text(
-      "Starting container, please wait...\n".to_owned(),
+      "Starting container, please wait...\n\r".to_owned(),
     ))
     .await?;
     type Sandbox = sandbox::insecure::InsecureSandbox;
@@ -58,16 +58,21 @@ async fn handle_ws_connection<S: AsyncRead + AsyncWrite + Unpin>(stream: S, src:
           let wsmsg = wsmsg.unwrap()?;
           match wsmsg {
             Message::Binary(stuff) => run.stdin.write_all(&stuff).await?,
+            Message::Text(stuff) => {
+              let mut stuff = stuff.into_bytes();
+              let len = stuff.len();
+              stuff.push(0u8);
+              stuff.extend_from_slice(&u32::to_be_bytes(len as u32));
+              stuff.rotate_right(5);
+              run.stdin.write_all(&stuff).await?;
+            },
             Message::Close(_) => {
               return Ok(false);
             },
             Message::Ping(payload) => {
               ws.feed(Message::Pong(payload)).await?;
             },
-            Message::Pong(_) => {},
-            Message::Text(_) => {
-              return Err(Box::new(ExpectedBinaryData));
-            }
+            Message::Pong(_) => {}
           }
         },
         _ = run.proc.wait() => {
@@ -82,7 +87,7 @@ async fn handle_ws_connection<S: AsyncRead + AsyncWrite + Unpin>(stream: S, src:
         Ok(false) => break,
         Err(e) => {
           let _ = ws
-            .feed(Message::Text(format!("Error: {}\nWill now exit.\n", e)))
+            .feed(Message::Text(format!("Error: {}\n\rWill now exit.\n\r", e)))
             .await;
           run.terminate().await;
           return Err(e);
