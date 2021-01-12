@@ -1,0 +1,36 @@
+body {
+  background-color: #EEEEEC;
+  color: #2E3436;
+  margin: 0;
+  padding: 0;
+  font-family: monospace;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #D3D7CF;
+    background-color: #2E3436;
+  }
+}
+.loading {
+  text-align: center;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 30px;
+}
+
+.term-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+/*# sourceMappingURL=style.97fcb138.css.map */
