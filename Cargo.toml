@@ -9,11 +9,13 @@ default-run = "wsserver"
 
 [dependencies]
 libc = "0.2.82"
-tokio = { version = "0.3", default-features = false, features = ["rt", "macros", "rt-multi-thread", "net", "io-util", "process"] }
-tungstenite = { version = "0.11", default-features = false }
-tokio-tungstenite = "0.12"
+tokio = { version = "1.0", features = ["rt", "macros", "rt-multi-thread", "net", "io-util", "process"] }
+tungstenite = { version = "0.12" }
+tokio-tungstenite = "0.13"
 futures = "0.3.9"
 thiserror = "1.0"
+# shiplift = { git = "https://github.com/micromaomao/shiplift.git" }
+shiplift = { path = "../shiplift" }
 
 [[bin]]
 name = "innerbin"

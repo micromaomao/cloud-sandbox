@@ -39,7 +39,6 @@ Promise.all([import("xterm"), import("xterm-addon-fit"), import("./theme")]).the
 
   let ws = new WebSocket(wsurl);
   ws.addEventListener("message", evt => {
-    console.log(evt.data);
     term.write(evt.data);
   });
 

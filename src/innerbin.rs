@@ -1,10 +1,9 @@
-
 use std::{error::Error, process::Stdio};
 use std::{io, ptr};
 
 mod config;
-mod parent;
 mod inputproto;
+mod parent;
 
 fn main() -> Result<(), Box<dyn Error>> {
   let mut pty_master: libc::c_int = 0;

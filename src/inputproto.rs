@@ -1,8 +1,6 @@
 use std::convert::TryInto;
 use std::error::Error;
-use std::{
-  io::{Read, Write},
-};
+use std::io::{Read, Write};
 use thiserror::Error;
 
 #[derive(Error, Debug)]

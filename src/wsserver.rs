@@ -2,16 +2,15 @@ use futures::sink::SinkExt;
 use futures::stream::StreamExt;
 
 use std::{error::Error, net::SocketAddr};
+use thiserror::Error;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpListener;
-use tokio::{
-  io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
-};
 use tokio_tungstenite::{accept_async, WebSocketStream};
 use tungstenite::Message;
-use thiserror::Error;
 
 mod config;
 mod sandbox;
+mod uniqueptr;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -28,18 +27,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 #[error("Expected binary ws data, got text.")]
 struct ExpectedBinaryData;
 
-async fn handle_ws_connection<S: AsyncRead + AsyncWrite + Unpin>(stream: S, src: SocketAddr) {
+async fn handle_ws_connection<S: AsyncRead + AsyncWrite + Unpin>(mut stream: S, src: SocketAddr) {
+  let mut ws = match accept_async(stream).await {
+    Ok(ws) => ws,
+    Err(e) => {
+      eprintln!("{}: {}", src, e);
+      return;
+    }
+  };
   async fn inner<S: AsyncRead + AsyncWrite + Unpin>(
-    stream: S,
+    ws: &mut WebSocketStream<S>,
     _src: SocketAddr,
   ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let mut ws = accept_async(stream).await?;
     ws.feed(Message::Text(
       "Starting container, please wait...\n\r".to_owned(),
     ))
     .await?;
-    type Sandbox = sandbox::insecure::InsecureSandbox;
-    let mut run = Sandbox::new()?;
+    type Sandbox = sandbox::docker::DockerSandbox;
+    // type Sandbox = sandbox::insecure::InsecureSandbox;
+    let mut run = Sandbox::new().await?;
     let mut read_buf = vec![0u8; 2048];
     async fn proc_loop<S: AsyncRead + AsyncWrite + Unpin>(
       run: &mut Sandbox,
@@ -47,7 +53,7 @@ async fn handle_ws_connection<S: AsyncRead + AsyncWrite + Unpin>(stream: S, src:
       read_buf: &mut Vec<u8>,
     ) -> Result<bool, Box<dyn Error + Send + Sync>> {
       tokio::select! {
-        read_res = run.stdout.read(&mut read_buf[..]) => {
+        read_res = futures::AsyncReadExt::read(&mut run.stdout, &mut read_buf[..]) => {
           let read_size = read_res?;
           ws.feed(Message::Text(String::from_utf8_lossy(&read_buf[0..read_size]).into_owned())).await?;
         },
@@ -57,14 +63,14 @@ async fn handle_ws_connection<S: AsyncRead + AsyncWrite + Unpin>(stream: S, src:
           }
           let wsmsg = wsmsg.unwrap()?;
           match wsmsg {
-            Message::Binary(stuff) => run.stdin.write_all(&stuff).await?,
+            Message::Binary(stuff) => futures::AsyncWriteExt::write_all(&mut run.stdin, &stuff).await?,
             Message::Text(stuff) => {
               let mut stuff = stuff.into_bytes();
               let len = stuff.len();
               stuff.push(0u8);
               stuff.extend_from_slice(&u32::to_be_bytes(len as u32));
               stuff.rotate_right(5);
-              run.stdin.write_all(&stuff).await?;
+              futures::AsyncWriteExt::write_all(&mut run.stdin, &stuff).await?;
             },
             Message::Close(_) => {
               return Ok(false);
@@ -75,14 +81,15 @@ async fn handle_ws_connection<S: AsyncRead + AsyncWrite + Unpin>(stream: S, src:
             Message::Pong(_) => {}
           }
         },
-        _ = run.proc.wait() => {
+        _ = run.wait.as_mut() => {
+          let _ = ws.feed(Message::Text("\n\rContainer exited.\n".to_owned())).await;
           return Ok(false);
         }
       }
       Ok(true)
     }
     loop {
-      match proc_loop(&mut run, &mut ws, &mut read_buf).await {
+      match proc_loop(&mut run, ws, &mut read_buf).await {
         Ok(true) => {}
         Ok(false) => break,
         Err(e) => {
@@ -97,7 +104,8 @@ async fn handle_ws_connection<S: AsyncRead + AsyncWrite + Unpin>(stream: S, src:
     run.terminate().await;
     Ok(())
   }
-  if let Err(e) = inner(stream, src).await {
+  if let Err(e) = inner(&mut ws, src).await {
     eprintln!("{}: {}", src, e);
+    let _ = ws.feed(Message::Text(format!("\n\rError: {}\n", e))).await;
   }
 }
