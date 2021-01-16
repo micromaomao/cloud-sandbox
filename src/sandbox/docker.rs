@@ -32,7 +32,7 @@ impl DockerSandbox {
           .cpus(0.5f64)
           .network_mode("none")
           .memory(1u64 << 26u64)
-          .user("0:0")
+          .user("10000:10000")
           .build(),
       )
       .await?;
