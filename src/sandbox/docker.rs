@@ -69,6 +69,6 @@ impl DockerSandbox {
   }
 
   pub async fn terminate(&mut self) {
-    // todo
+    let _ = unsafe { self.container_ref.deref() }.kill(None).await;
   }
 }
