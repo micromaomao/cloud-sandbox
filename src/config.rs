@@ -9,4 +9,4 @@ pub fn get_command() -> Command {
 
 pub const INNERBIN_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/target/debug/innerbin");
 
-pub const DOCKER_IMAGE: &str = "jsh-sandbox";
+pub const DOCKER_IMAGE: &str = "cloud-sandbox-jsh";

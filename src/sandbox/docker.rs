@@ -31,7 +31,7 @@ impl DockerSandbox {
           .tty(false)
           .cpus(0.5f64)
           .network_mode("none")
-          .memory(1u64 << 26u64)
+          .memory(1u64 << 27u64)
           .user("10000:10000")
           .build(),
       )
