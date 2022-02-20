@@ -1,6 +1,7 @@
 use futures::sink::SinkExt;
 use futures::stream::StreamExt;
 
+use std::time::Duration;
 use std::{error::Error, net::SocketAddr};
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -52,6 +53,7 @@ async fn handle_ws_connection<S: AsyncRead + AsyncWrite + Unpin>(mut stream: S, 
       ws: &mut WebSocketStream<S>,
       read_buf: &mut Vec<u8>,
     ) -> Result<bool, Box<dyn Error + Send + Sync>> {
+      let timeout = tokio::time::sleep(Duration::from_secs(600));
       tokio::select! {
         read_res = futures::AsyncReadExt::read(&mut run.stdout, &mut read_buf[..]) => {
           let read_size = read_res?;
@@ -83,6 +85,10 @@ async fn handle_ws_connection<S: AsyncRead + AsyncWrite + Unpin>(mut stream: S, 
         },
         _ = run.wait.as_mut() => {
           let _ = ws.feed(Message::Text("\n\rContainer exited.\n".to_owned())).await;
+          return Ok(false);
+        }
+        _ = timeout => {
+          let _ = ws.feed(Message::Text("\n\rSession terminated due to timeout.\n".to_owned())).await;
           return Ok(false);
         }
       }
